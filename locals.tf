@@ -10,3 +10,10 @@ locals {
   mutated_tuple = setunion(var.server_metadata, ["web-2"])
   mutated_set   = setunion(var.availability_zones, ["me-central-1c"])
 }
+
+locals {
+  server_tags = merge(
+    { Name = "web-server" },
+    var.optional_tag != null ? { Custom = var.optional_tag } : {}
+  )
+}

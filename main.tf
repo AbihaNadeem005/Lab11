@@ -108,3 +108,23 @@ output "mutation_comparison" {
     mutated_tuple  = local.mutated_tuple
   }
 }
+
+variable "optional_tag" {
+  type        = string
+  description = "A tag that may or may not be provided"
+  default     = null
+}
+
+output "optional_tag" {
+  value = local.server_tags
+}
+
+variable "dynamic_value" {
+  type        = any
+  description = "A variable that can accept any data type"
+  default     = null
+}
+
+output "value_received" {
+  value = var.dynamic_value
+}
