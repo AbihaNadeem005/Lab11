@@ -78,3 +78,33 @@ variable "server_config" {
 output "server_config" {
   value = var.server_config
 }
+
+variable "server_names" {
+  type = list(string)
+  default = ["web-2", "web-1", "web-2"]
+}
+
+variable "server_metadata" {
+  type = tuple([string, number, bool])
+  default = ["web-1", 4, true]
+}
+
+variable "availability_zones" {
+  type = set(string)
+  default = ["me-central-1b", "me-central-1a", "me-central-1b"]
+}
+
+output "compare_collections" {
+  value = {
+    list_example  = var.server_names
+    tuple_example = var.server_metadata
+    set_example   = var.availability_zones
+  }
+}
+
+output "mutation_comparison" {
+  value = {
+    original_tuple = var.server_metadata
+    mutated_tuple  = local.mutated_tuple
+  }
+}
