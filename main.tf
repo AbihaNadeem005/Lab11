@@ -2,129 +2,119 @@ provider "aws" {
   shared_config_files      = ["~/.aws/config"]
   shared_credentials_files = ["~/.aws/credentials"]
 }
-variable "subnet_cidr_block" {
-  type        = string
-  default     = ""
-  description = "CIDR block to assign to the application subnet"
-  sensitive   = false
-  nullable    = false
 
-  validation {
-    condition     = can(regex("^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]+$", var.subnet_cidr_block))
-    error_message = "The subnet_cidr_block must be a valid CIDR notation string, such as 10.0.0.0/24."
-  }
-}
-output "subnet_cidr_block_output" {
-  value = var.subnet_cidr_block
-}
-variable "api_session_token" {
-  type        = string
-  default     = "my_API_session_Token"
-  description = "Short‑lived API session token used during apply operations"
-  sensitive   = true
-  nullable    = false
+variable "vpc_cidr_block" {}
+variable "subnet_cidr_block" {}
+variable "availability_zone" {}
+variable "env_prefix" {}
+variable "instance_type" {}
 
-  validation {
-    condition     = can(regex("^[A-Za-z0-9-_]{20,}$", var.api_session_token))
-    error_message = "The API session token must be at least 20 characters and contain only letters, numbers, hyphens, or underscores."
+
+resource "aws_vpc" "myapp_vpc" {
+  cidr_block = var.vpc_cidr_block
+  tags = {
+     Name = "${var.env_prefix}-vpc"
   }
 }
 
-output "api_session_token_output" {
-  value     = var.api_session_token
-  sensitive = true
-}
-
-variable "environment" {}
-variable "project_name" {}
-variable "primary_subnet_id" {}
-variable "subnet_count" {}
-variable "monitoring" {}
-
-output "resource_name" {
-  value = local.resource_name
-}
-output "primary_public_subnet" {
-  value = local.primary_public_subnet
-}
-output "subnet_count" {
-  value = local.subnet_count
-}
-output "is_production" {
-  value = local.is_production
-}
-output "monitoring_enabled" {
-  value = local.monitoring_enabled
-}
-
-variable "tags" {
-  type = map(string)
-}
-
-output "tags" {
-  value = var.tags
-}
-
-variable "server_config" {
-  type = object({
-    name            = string
-    instance_type   = string
-    monitoring      = bool
-    storage_gb      = number
-    backup_enabled  = bool
-  })
-}
-
-output "server_config" {
-  value = var.server_config
-}
-
-variable "server_names" {
-  type = list(string)
-  default = ["web-2", "web-1", "web-2"]
-}
-
-variable "server_metadata" {
-  type = tuple([string, number, bool])
-  default = ["web-1", 4, true]
-}
-
-variable "availability_zones" {
-  type = set(string)
-  default = ["me-central-1b", "me-central-1a", "me-central-1b"]
-}
-
-output "compare_collections" {
-  value = {
-    list_example  = var.server_names
-    tuple_example = var.server_metadata
-    set_example   = var.availability_zones
+resource "aws_subnet" "myapp_subnet_1" {
+  vpc_id            = aws_vpc.myapp_vpc.id
+  cidr_block        = var.subnet_cidr_block
+  availability_zone = var.availability_zone
+  tags = {
+     Name = "${var.env_prefix}-subnet-1"
   }
 }
 
-output "mutation_comparison" {
-  value = {
-    original_tuple = var.server_metadata
-    mutated_tuple  = local.mutated_tuple
+resource "aws_internet_gateway" "myapp_igw" {
+  vpc_id = aws_vpc.myapp_vpc.id
+  tags = {
+     Name = "${var.env_prefix}-igw"
   }
 }
 
-variable "optional_tag" {
-  type        = string
-  description = "A tag that may or may not be provided"
-  default     = null
+resource "aws_route_table" "myapp_route_table" {
+  vpc_id = aws_vpc.myapp_vpc.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.myapp_igw.id
+  }
+
+  tags = {
+     Name = "${var.env_prefix}-rt"
+  }
 }
 
-output "optional_tag" {
-  value = local.server_tags
+resource "aws_default_route_table" "main_rt" {
+  default_route_table_id = aws_vpc.myapp_vpc.default_route_table_id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.myapp_igw.id
+  }
+
+  tags = {
+     Name = "${var.env_prefix}-rt"
+  }  
+}
+variable "my_ip" {}
+
+resource "aws_default_security_group" "myapp_sg" {
+  vpc_id      = aws_vpc.myapp_vpc.id
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [var.my_ip]
+  }
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port       = 0
+    to_port         = 0
+    protocol        = "-1"
+    cidr_blocks     = ["0.0.0.0/0"]
+    prefix_list_ids = []
+  }
+
+  tags = {
+    Name = "${var.env_prefix}-sg"
+  }
 }
 
-variable "dynamic_value" {
-  type        = any
-  description = "A variable that can accept any data type"
-  default     = null
+
+resource "aws_instance" "myapp-server" {
+  ami                         = "ami-05524d6658fcf35b6" 
+  instance_type               = var.instance_type
+  subnet_id                   = aws_subnet.myapp_subnet_1.id
+  security_groups             = ["sg-036025c98f4c503ad"]
+  availability_zone           = var.availability_zone
+  associate_public_ip_address = true
+  key_name                    = aws_key_pair.ssh_key.key_name
+  
+  user_data = file("entry-script.sh")
+  tags = {
+    Name = "${var.env_prefix}-ec2-instance"
+  }  
+
 }
 
-output "value_received" {
-  value = var.dynamic_value
+output "aws_instance_public_ip" {
+  value = aws_instance.myapp-server.public_ip
 }
+
+resource "aws_key_pair" "ssh_key" {
+  key_name   = "serverkey"
+  public_key = file("~/.ssh/id_ed25519.pub")
+}
+
+
+
