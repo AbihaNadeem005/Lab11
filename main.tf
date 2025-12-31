@@ -34,3 +34,25 @@ output "api_session_token_output" {
   value     = var.api_session_token
   sensitive = true
 }
+
+variable "environment" {}
+variable "project_name" {}
+variable "primary_subnet_id" {}
+variable "subnet_count" {}
+variable "monitoring" {}
+
+output "resource_name" {
+  value = local.resource_name
+}
+output "primary_public_subnet" {
+  value = local.primary_public_subnet
+}
+output "subnet_count" {
+  value = local.subnet_count
+}
+output "is_production" {
+  value = local.is_production
+}
+output "monitoring_enabled" {
+  value = local.monitoring_enabled
+}
