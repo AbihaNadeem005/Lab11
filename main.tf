@@ -56,3 +56,25 @@ output "is_production" {
 output "monitoring_enabled" {
   value = local.monitoring_enabled
 }
+
+variable "tags" {
+  type = map(string)
+}
+
+output "tags" {
+  value = var.tags
+}
+
+variable "server_config" {
+  type = object({
+    name            = string
+    instance_type   = string
+    monitoring      = bool
+    storage_gb      = number
+    backup_enabled  = bool
+  })
+}
+
+output "server_config" {
+  value = var.server_config
+}
